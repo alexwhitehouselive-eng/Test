@@ -145,9 +145,13 @@ export function ImportPanel({
             }}
           />
           <span className="font-medium" style={{ color: 'var(--text-secondary)' }}>
-            {busy ? 'Reading file…' : `Choose ${tab === 'apple' ? 'export.xml' : 'a .csv file'}`}
+            {busy
+              ? progress !== null
+                ? `Reading file… ${Math.round(progress * 100)}%`
+                : 'Reading file…'
+              : `Choose ${tab === 'apple' ? 'export.xml' : 'a .csv file'}`}
           </span>
-          <span>or drag it here</span>
+          <span>{busy ? 'A multi-year export can take a minute or two — keep this tab open' : 'or drag it here'}</span>
         </label>
 
         {progress !== null && (

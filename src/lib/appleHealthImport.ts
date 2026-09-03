@@ -95,6 +95,15 @@ const SLEEP_ASLEEP_VALUES = new Set([
  * <Record .../> and <Workout .../> tags line-by-line via regex — reliable in
  * practice since Apple has kept this export format stable and flat.
  */
+// Give the browser a chance to repaint (so the progress bar actually moves
+// and the tab doesn't look frozen) between bursts of synchronous regex work
+// on a large chunk.
+function yieldToBrowser(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0))
+}
+
+const YIELD_EVERY_N_TAGS = 400
+
 export async function importAppleHealthExport(
   file: File,
   onProgress?: (bytesRead: number, totalBytes: number) => void,
@@ -104,13 +113,9 @@ export async function importAppleHealthExport(
   const warnings: string[] = []
   let recordsScanned = 0
   let workoutId = 0
-
-  const reader = file.stream().getReader()
-  const decoder = new TextDecoder()
   let carry = ''
-  let bytesRead = 0
 
-  function processChunk(chunk: string, isFinal: boolean) {
+  async function processChunk(chunk: string, isFinal: boolean) {
     const text = carry + chunk
     // hold back a partial trailing tag until the next chunk (or EOF)
     const lastOpen = text.lastIndexOf('<')
@@ -118,7 +123,14 @@ export async function importAppleHealthExport(
     const usable = text.slice(0, boundary)
     carry = text.slice(boundary)
 
-    for (const tag of usable.match(RECORD_TAG_RE) ?? []) {
+    const recordTags = usable.match(RECORD_TAG_RE) ?? []
+    let sinceYield = 0
+
+    for (const tag of recordTags) {
+      if (++sinceYield >= YIELD_EVERY_N_TAGS) {
+        sinceYield = 0
+        await yieldToBrowser()
+      }
       const type = attr(tag, 'type')
       if (!type) continue
 
@@ -160,6 +172,10 @@ export async function importAppleHealthExport(
     }
 
     for (const tag of usable.match(WORKOUT_TAG_RE) ?? []) {
+      if (++sinceYield >= YIELD_EVERY_N_TAGS) {
+        sinceYield = 0
+        await yieldToBrowser()
+      }
       const activityType = attr(tag, 'workoutActivityType')
       const start = attr(tag, 'startDate')
       if (!activityType || !start) continue
@@ -179,15 +195,28 @@ export async function importAppleHealthExport(
   }
 
   const totalBytes = file.size
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) {
-      processChunk('', true)
-      break
+
+  if (typeof file.stream === 'function') {
+    const reader = file.stream().getReader()
+    const decoder = new TextDecoder()
+    let bytesRead = 0
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) {
+        await processChunk('', true)
+        break
+      }
+      bytesRead += value.byteLength
+      await processChunk(decoder.decode(value, { stream: true }), false)
+      onProgress?.(bytesRead, totalBytes)
     }
-    bytesRead += value.byteLength
-    processChunk(decoder.decode(value, { stream: true }), false)
-    onProgress?.(bytesRead, totalBytes)
+  } else {
+    // Fallback for browsers without Blob.stream() (older Safari). Reads the
+    // whole file into memory at once — still correct, just without
+    // incremental progress on very large files.
+    const text = await file.text()
+    onProgress?.(totalBytes, totalBytes)
+    await processChunk(text, true)
   }
 
   if (days.size === 0 && workouts.length === 0) {
