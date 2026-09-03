@@ -10,11 +10,13 @@ export function Header({
   theme,
   onThemeChange,
   onEditGoals,
+  onImportData,
   subtitle,
 }: {
   theme: ThemeChoice
   onThemeChange: (t: ThemeChoice) => void
   onEditGoals: () => void
+  onImportData: () => void
   subtitle: string
 }) {
   return (
@@ -29,6 +31,14 @@ export function Header({
       </div>
 
       <div className="flex items-center gap-2">
+        <button
+          onClick={onImportData}
+          className="rounded-lg px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+          style={{ background: 'var(--color-steps)' }}
+        >
+          Import data
+        </button>
+
         <button
           onClick={onEditGoals}
           className="rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors"

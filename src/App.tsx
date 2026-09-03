@@ -7,11 +7,13 @@ import { WorkoutTypeBreakdown } from './components/WorkoutTypeBreakdown'
 import { WorkoutLog } from './components/WorkoutLog'
 import { LogMetricsForm } from './components/LogMetricsForm'
 import { GoalsPanel } from './components/GoalsPanel'
+import { ImportPanel } from './components/ImportPanel'
 import { useLocalStorage } from './hooks/useLocalStorage'
 import { useTheme } from './hooks/useTheme'
 import { DEFAULT_GOALS, generateSeedMetrics, generateSeedWorkouts } from './lib/seed'
 import type { DailyMetrics, Goals, MetricKey, Workout } from './lib/types'
 import { METRIC_ORDER } from './lib/metrics'
+import { mergeMetrics, type MetricUpdate } from './lib/mergeMetrics'
 import { todayISO } from './lib/utils'
 
 export default function App() {
@@ -28,6 +30,7 @@ export default function App() {
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>('steps')
   const [range, setRange] = useState(30)
   const [goalsOpen, setGoalsOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
 
   const today = metrics[metrics.length - 1]
 
@@ -54,6 +57,19 @@ export default function App() {
     setWorkouts((prev) => [...prev, w])
   }
 
+  function importData(updates: MetricUpdate[], importedWorkouts: Workout[]) {
+    if (updates.length > 0) {
+      setMetrics((prev) => mergeMetrics(prev, updates).metrics)
+    }
+    if (importedWorkouts.length > 0) {
+      setWorkouts((prev) => {
+        const existingIds = new Set(prev.map((w) => w.id))
+        const fresh = importedWorkouts.filter((w) => !existingIds.has(w.id))
+        return [...prev, ...fresh]
+      })
+    }
+  }
+
   function deleteWorkout(id: string) {
     setWorkouts((prev) => prev.filter((w) => w.id !== id))
   }
@@ -72,6 +88,7 @@ export default function App() {
         theme={theme}
         onThemeChange={setTheme}
         onEditGoals={() => setGoalsOpen(true)}
+        onImportData={() => setImportOpen(true)}
         subtitle={subtitle}
       />
 
@@ -115,6 +132,8 @@ export default function App() {
       {goalsOpen && (
         <GoalsPanel goals={goals} onSave={setGoals} onClose={() => setGoalsOpen(false)} />
       )}
+
+      {importOpen && <ImportPanel onImport={importData} onClose={() => setImportOpen(false)} />}
     </div>
   )
 }

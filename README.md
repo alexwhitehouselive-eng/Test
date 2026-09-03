@@ -14,9 +14,12 @@ weight, plus a workout log.
   breakdown.
 - **Quick-entry forms** to log today's numbers and add workouts.
 - **Editable goals** for every metric.
+- **Import your own data** — an Apple Health `export.xml` (parsed in-browser,
+  nothing uploaded) or a CSV from another tracker/spreadsheet, merged into
+  your history without overwriting fields the file doesn't include.
 - **Light / dark / system theme**.
-- Seeded demo data for the last 90 days on first load; everything you edit is
-  persisted to `localStorage`.
+- Seeded demo data for the last 90 days on first load; everything you edit or
+  import is persisted to `localStorage`.
 
 ## Development
 
